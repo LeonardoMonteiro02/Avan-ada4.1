@@ -1,14 +1,18 @@
 package com.automacao.avancada41;
 
+import android.content.Context;
 import android.location.Location;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Fluxo {
     private Geocerca geocerca;  // Altere para usar a classe Geocerca
-    private Float velocidade;
+    private List<Float> velocidade;
     private Float distancia;
     private Long tempo = 0L;  // Inicializa com um valor padrão
     private LatLng centro;
@@ -21,7 +25,7 @@ public class Fluxo {
         this.geocerca = new Geocerca(position, 30); // Crie a Geocerca com o raio padrão
         this.distancia = distancia;
         this.tempo = tempo;
-        this.velocidade = null; // Inicialmente nulo
+        this.velocidade = new ArrayList<>(); // Inicialmente nulo
         this.centro = position;
         this.id = nextId++; // Atribui o próximo ID e incrementa
     }
@@ -31,6 +35,7 @@ public class Fluxo {
     public int getId() {
         return id;
     }
+
     public boolean isAtualizado() {
         return atualizado;
     }
@@ -38,6 +43,7 @@ public class Fluxo {
     public void setAtualizado(boolean atualizado) {
         this.atualizado = atualizado;
     }
+
     public Geocerca getGeocerca() {
         return geocerca;
     }
@@ -46,12 +52,12 @@ public class Fluxo {
         this.geocerca = geocerca;
     }
 
-    public Float getVelocidade() {
+    public List<Float> getVelocidade() {
         return velocidade;
     }
 
     public void setVelocidade(Float velocidade) {
-        this.velocidade = velocidade;
+        this.velocidade.add(velocidade);
     }
 
     public Float getDistancia() {
@@ -76,7 +82,7 @@ public class Fluxo {
     }
 
     // Atualiza a velocidade e o tempo
-    public void atualizarInformacoes(float velocidade, long tempoAtual) {
+    public void atualizarInformacoes(float velocidade, long tempoAtual, Context context) {
         if (!atualizado) {
             setVelocidade(velocidade);
 
@@ -93,7 +99,7 @@ public class Fluxo {
             }
 
             setAtualizado(true);
-            imprimirInformacoes();
+            imprimirInformacoes(context);
         }
     }
 
@@ -105,11 +111,38 @@ public class Fluxo {
     }
 
     // Método para imprimir informações do fluxo
-    public void imprimirInformacoes() {
+    // Exemplo de uso
+    public void imprimirInformacoes(Context context) {
+        String fluxoId = String.valueOf(getId());
+        String coordenadas = centro.toString();
+        String distanciaInfo = distancia != null ? String.valueOf(distancia) : "não definida";
+        String velocidadeInfo = "";
+
         System.out.println("Fluxo ID: " + getId());
         System.out.println("Coordenadas: " + centro);
         System.out.println("Distância: " + (distancia != null ? distancia : "não definida"));
-        System.out.println("Tempo: " + (tempo != null ? tempo + " ms" : "não definido"));
-        System.out.println("Velocidade: " + (velocidade != null ? velocidade + " km/h" : "não definida"));
+
+        if (velocidade != null && !velocidade.isEmpty()) {
+            System.out.println("Simulação (total: " + velocidade .size() + "):");
+            StringBuilder sb = new StringBuilder();
+            sb.append("Simulação (total: ").append(velocidade.size()).append("):\n");
+            for (int i = 0; i < velocidade.size(); i++) {
+                Float vel = velocidade.get(i);
+                System.out.println("  Velocidade " + (i + 1) + ": " + vel + " km/h");
+                sb.append("  Velocidade ").append(i + 1).append(": ").append(vel).append(" km/h\n");
+            }
+            velocidadeInfo = sb.toString();
+        } else {
+            velocidadeInfo = "Velocidade: não definida";
+            System.out.println("Velocidade: não definida");
+        }
+
+        // Combine todas as informações em uma única mensagem
+        String notificationMessage = "Fluxo ID: " + fluxoId + "\n" +
+                "     Speed: " + velocidade;
+
+        // Crie e envie a notificação
+        NotificationHelper notificationHelper = new NotificationHelper(context);
+        notificationHelper.sendNotification("Atualização de Localização", notificationMessage);
     }
 }

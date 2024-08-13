@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.biblioteca.Region;
+import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
@@ -71,10 +72,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private List<Fluxo> fluxos = new ArrayList<>();
 
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Inicia o serviço em segundo plano ao criar a Activity
+        Intent serviceIntent = new Intent(this, LocationForegroundService.class);
+        serviceIntent.putExtra("inputExtra", "O serviço de localização está rodando em segundo plano.");
+        startForegroundService(serviceIntent);
 
         // Inicializar o Places API
         Places.initialize(getApplicationContext(), PLACES_API_KEY);
@@ -95,6 +102,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         } else {
             // Se a permissão de localização foi concedida, iniciar atualizações de localização em segundo plano
             customLocationManager.startLocationUpdatesInBackground();
+
 
             // Inicializar AutoCompleteTextView para pesquisa de localização (ponto de partida)
             TextInputLayout locationSearchLayout = findViewById(R.id.editTextStartPoint);
@@ -243,10 +251,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onDestroy() {
         super.onDestroy();
         mMapView.onDestroy();
+        // Passe o callback correto
         customLocationManager.stopLocationUpdates();
         executorService.shutdown();
-
     }
+
 
     // Este método é chamado quando a memória está baixa e notifica o MapView.
     @Override
@@ -291,14 +300,36 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             updateLocationAddress(location.getLatitude(), location.getLongitude(), true); // true para ponto de partida
         }
 
-        // Verificar se a localização atual está dentro de alguma geocerca
         LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
         long currentTimeMillis = System.currentTimeMillis();
+        boolean todosAtualizados = true;  // Flag para verificar se todos os fluxos foram atualizados
+        boolean dentroDeAlgumaGeocerca = false;  // Flag para verificar se ainda está dentro de alguma geocerca
+
         if (!fluxos.isEmpty()) {
             for (Fluxo fluxo : fluxos) {
                 if (fluxo.dentroDaGeocerca(currentLatLng)) {
                     // Atualiza o fluxo somente se ainda não foi atualizado
-                    fluxo.atualizarInformacoes(location.getSpeed() * 3.6f, currentTimeMillis);
+                    fluxo.atualizarInformacoes(location.getSpeed() * 3.6f, currentTimeMillis, MainActivity.this);
+                    dentroDeAlgumaGeocerca = true;  // Ainda está dentro de uma geocerca
+                }
+
+                // Verifica se algum fluxo ainda não foi atualizado
+                if (!fluxo.isAtualizado()) {
+                    todosAtualizados = false;
+                }
+            }
+
+            // Se todos os fluxos foram atualizados e estamos fora de todas as geocercas
+            if (todosAtualizados && !dentroDeAlgumaGeocerca) {
+                try {
+                    Thread.sleep(3000);  // Delay de 3 segundos (3000 milissegundos)
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                // Redefine a flag 'atualizado' de todos para 'false'
+                for (Fluxo fluxo : fluxos) {
+                    fluxo.setAtualizado(false);
                 }
             }
         }
@@ -458,6 +489,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onGeofencesCreated(List<Fluxo> fluxos) {
         this.fluxos = fluxos;
+        Log.e("MainActivity", "O numero total de fluxo é: " + fluxos.size());
     }
     @Override
     public void onGeofenceError(String error) {

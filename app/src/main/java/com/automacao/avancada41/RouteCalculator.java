@@ -257,7 +257,7 @@ public class RouteCalculator {
                         .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
                 Log.d("Geofence", "Geocerca de início adicionada em: " + route.get(0).toString());
 
-                for (int i = 1; i < route.size(); i++) {
+                for (int i = 1; i < route.size()-1; i++) {
                     LatLng currentLatLng = route.get(i);
                     float[] results = new float[1];
                     android.location.Location.distanceBetween(

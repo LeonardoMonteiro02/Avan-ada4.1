@@ -19,8 +19,8 @@ import com.google.android.gms.location.LocationResult;
 public class LocationManager {
     private static final String TAG = "LocationManager";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
-    private static final long UPDATE_INTERVAL = 5000; // 5 segundos
-    private static final int FASTEST_UPDATE_INTERVAL = 2000; // 2 segundos
+    private static final long UPDATE_INTERVAL = 1000; // 5 segundos
+    private static final int FASTEST_UPDATE_INTERVAL = 1000; // 2 segundos
 
     private FusedLocationProviderClient fusedLocationProviderClient;
     private LocationCallback locationCallback;
