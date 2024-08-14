@@ -68,8 +68,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Use sua própria chave de API aqui
     private static final String PLACES_API_KEY = "AIzaSyBCyVwhUeBZrcFLX8-PqsjYzvYMaVQvS_4";
 
-    private List<Region> regions = new ArrayList<>();
     private List<Fluxo> fluxos = new ArrayList<>();
+    private List<Fluxo> copy = new ArrayList<>();
+    private FirebaseDataSaver firebaseDataSaver;
 
 
 
@@ -208,6 +209,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Verifique se as coordenadas de início e destino estão disponíveis
                         if (startLatLng != null && destinationLatLng != null) {
                             // Crie uma instância do RouteCalculator e calcule a rotaRouteCalculator routeCalculator = new RouteCalculator(mMap, startLatLng, destinationLatLng, this);
+
                             RouteCalculator routeCalculator = new RouteCalculator(mMap, startLatLng, destinationLatLng, MainActivity.this, MainActivity.this);
                             routeCalculator.calculateRoute();
                         } else {
@@ -306,6 +308,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         boolean dentroDeAlgumaGeocerca = false;  // Flag para verificar se ainda está dentro de alguma geocerca
 
         if (!fluxos.isEmpty()) {
+
             for (Fluxo fluxo : fluxos) {
                 if (fluxo.dentroDaGeocerca(currentLatLng)) {
                     // Atualiza o fluxo somente se ainda não foi atualizado
@@ -330,7 +333,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // Redefine a flag 'atualizado' de todos para 'false'
                 for (Fluxo fluxo : fluxos) {
                     fluxo.setAtualizado(false);
+
                 }
+                copy = new ArrayList<>(fluxos);
+                saveCurrentLocationToFirebase();
             }
         }
 
@@ -489,11 +495,58 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onGeofencesCreated(List<Fluxo> fluxos) {
         this.fluxos = fluxos;
-        Log.e("MainActivity", "O numero total de fluxo é: " + fluxos.size());
+        Log.e("MainActivity", "O numero total de fluxo é: " + this.fluxos.size());
     }
     @Override
     public void onGeofenceError(String error) {
         // Lidar com erros de geofence aqui
         Log.e("MainActivity", "Erro ao criar geofences: " + error);
     }
+
+    private void saveCurrentLocationToFirebase() {
+        // Verifica se o marcador da localização atual não é nulo
+        if (currentLocationMarker != null) {
+            // Verifica se a thread FirebaseDataSaver ainda não foi iniciada
+            if (firebaseDataSaver == null || !firebaseDataSaver.isAlive()) {
+                // Criar uma instância de FirebaseDataSaver
+                firebaseDataSaver = new FirebaseDataSaver(this, copy, semaphore);
+
+                firebaseDataSaver.start();
+                try {
+                    firebaseDataSaver.join();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                recuperarDados(firebaseDataSaver);
+            } else {
+                // Registra uma mensagem de log se a thread já estiver em execução
+                Log.d("HomeFragment", "Thread já está em execução.");
+            }
+
+            // Notificar a thread quando a lista não estiver mais vazia
+            synchronized (copy) {
+                copy.notify();
+            }
+
+        } else {
+            // Exibe um Toast informando ao usuário sobre a indisponibilidade da localização atual
+            Toast.makeText(this, "Localização atual não disponível.", Toast.LENGTH_SHORT).show();
+        }
+    }
+    public void recuperarDados(FirebaseDataSaver firebaseDataSaver) {
+        firebaseDataSaver.retrieveData(new OnDataRetrievedListener() {
+            @Override
+            public void onDataRetrieved(List<Fluxo> fluxos) {
+                if (fluxos != null) {
+                    // Realize as ações que precisam dos dados carregados aqui
+                    for (Fluxo fluxo : fluxos) {
+                        Log.d("MainActivity", "Fluxo recuperado: "+  fluxo.getId()+", Velocidade: " + fluxo.getVelocidade().size());
+                    }
+                } else {
+                    Log.e("MainActivity", "Erro ao recuperar os dados ou lista vazia.");
+                }
+            }
+        });
+    }
+
 }

@@ -19,6 +19,7 @@ public class Geocerca {
         this.corContorno = Color.MAGENTA; // Cor padrão para o contorno
         this.corPreenchimento = Color.argb(64, 128, 0, 128); // Cor padrão roxa com transparência
     }
+    public Geocerca(){}
 
     // Getters e Setters
     public LatLng getCentro() {

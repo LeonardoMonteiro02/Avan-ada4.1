@@ -12,7 +12,8 @@ import java.util.List;
 
 public class Fluxo {
     private Geocerca geocerca;  // Altere para usar a classe Geocerca
-    private List<Float> velocidade;
+    private List<Float> velocidade = new ArrayList<>();
+
     private Float distancia;
     private Long tempo = 0L;  // Inicializa com um valor padrão
     private LatLng centro;
@@ -21,19 +22,32 @@ public class Fluxo {
     private int id; // Identificador único
 
     // Construtor da classe Fluxo
+    public Fluxo() {
+        this.velocidade = new ArrayList<>();
+        this.tempo = 0L;
+        this.id = nextId++;
+    }
+
+    // Construtor da classe Fluxo com argumentos
     public Fluxo(LatLng position, Float distancia, Long tempo) {
         this.geocerca = new Geocerca(position, 30); // Crie a Geocerca com o raio padrão
         this.distancia = distancia;
         this.tempo = tempo;
-        this.velocidade = new ArrayList<>(); // Inicialmente nulo
+        this.velocidade = new ArrayList<>();
         this.centro = position;
-        this.id = nextId++; // Atribui o próximo ID e incrementa
+        this.id = nextId++;
     }
 
     // Getters e setters
-
+    // Método para reiniciar o contador de IDs
+    public static void resetIdCounter() {
+        nextId = 1;
+    }
     public int getId() {
         return id;
+    }
+    public void setId(int id){
+        this.id=id;
     }
 
     public boolean isAtualizado() {

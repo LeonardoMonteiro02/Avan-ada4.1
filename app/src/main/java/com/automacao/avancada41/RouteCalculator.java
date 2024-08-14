@@ -1,3 +1,4 @@
+
 package com.automacao.avancada41;
 
 import android.content.Context;
@@ -217,6 +218,7 @@ public class RouteCalculator {
 
             // Método para adicionar uma geocerca e um marcador com rótulo no mapa
             private void addGeofences(List<LatLng> route) {
+                Fluxo.resetIdCounter();
                 int geofenceCount = 6;
                 List<Fluxo> fluxos = new ArrayList<>();
 
