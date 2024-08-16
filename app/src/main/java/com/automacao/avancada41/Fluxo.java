@@ -4,50 +4,55 @@ import android.content.Context;
 import android.location.Location;
 
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Fluxo {
-    private Geocerca geocerca;  // Altere para usar a classe Geocerca
-    private List<Float> velocidade = new ArrayList<>();
-
+    // Atributos da classe
+    private Geocerca geocerca;
+    private List<Float> velocidades;
+    private List<Long> temposMedidos;
+    private Long tempoEsperado;
+    private float velocidadeMedia;
     private Float distancia;
-    private Long tempo = 0L;  // Inicializa com um valor padrão
     private LatLng centro;
-    private boolean atualizado;  // Novo campo
-    private static int nextId = 1; // Gerador de IDs sequenciais
-    private int id; // Identificador único
+    private boolean atualizado;
+    private static int nextId = 1;
+    private int id;
 
-    // Construtor da classe Fluxo
+    // Construtores
     public Fluxo() {
-        this.velocidade = new ArrayList<>();
-        this.tempo = 0L;
+        this.velocidades = new ArrayList<>();
+        this.temposMedidos = new ArrayList<>();
         this.id = nextId++;
     }
 
-    // Construtor da classe Fluxo com argumentos
-    public Fluxo(LatLng position, Float distancia, Long tempo) {
-        this.geocerca = new Geocerca(position, 30); // Crie a Geocerca com o raio padrão
+    public Fluxo(LatLng position, Float distancia, float velocidadeMedia) {
+        this();
+        this.geocerca = new Geocerca(position, 30);
         this.distancia = distancia;
-        this.tempo = tempo;
-        this.velocidade = new ArrayList<>();
         this.centro = position;
-        this.id = nextId++;
+        this.velocidadeMedia = velocidadeMedia;
     }
 
-    // Getters e setters
-    // Método para reiniciar o contador de IDs
+    // Métodos estáticos
     public static void resetIdCounter() {
         nextId = 1;
     }
+
+    public static void setNextIdCounter(int index) {
+        nextId = index;
+    }
+
+    // Getters e Setters
     public int getId() {
         return id;
     }
-    public void setId(int id){
-        this.id=id;
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     public boolean isAtualizado() {
@@ -66,12 +71,21 @@ public class Fluxo {
         this.geocerca = geocerca;
     }
 
-    public List<Float> getVelocidade() {
-        return velocidade;
+    public List<Float> getVelocidades() {
+        return velocidades;
     }
 
     public void setVelocidade(Float velocidade) {
-        this.velocidade.add(velocidade);
+        this.velocidades.add(velocidade);
+    }
+
+    public Float getVelocidadeMedia() {
+        return velocidadeMedia;
+    }
+
+    public void setVelocidadeMedia(float velocidadeMedia) {
+        this.velocidadeMedia = velocidadeMedia;
+
     }
 
     public Float getDistancia() {
@@ -79,83 +93,98 @@ public class Fluxo {
     }
 
     public void setDistancia(Float distancia) {
+
         this.distancia = distancia;
     }
 
-    public Long getTempo() {
-        return tempo;
+    public LatLng getCentro() {
+        return centro;
     }
 
-    public void setTempo(Long tempo) {
-        this.tempo = tempo;
+    public void setCentro(LatLng centro) {
+        this.centro = centro;
     }
 
-    // Método para adicionar a geocerca no mapa
+    public List<Long> getTemposMedidos() {
+        return temposMedidos;
+    }
+
+    public Long getTempoEsperado() {
+        return tempoEsperado;
+    }
+
+    public void setTempoEsperado(Long tempo) {
+        this.tempoEsperado = tempo;
+    }
+    public void addTempoMedido(Long tempo) {
+        this.temposMedidos.add(tempo);
+    }
+
+    // Métodos de funcionalidade
     public void adicionarGeocercaNoMapa(GoogleMap map) {
         geocerca.adicionarGeocercaNoMapa(map);
     }
 
-    // Atualiza a velocidade e o tempo
     public void atualizarInformacoes(float velocidade, long tempoAtual, Context context) {
         if (!atualizado) {
             setVelocidade(velocidade);
-
-            Long tempo = getTempo();  // Linha problemática
-            if (tempo == null) {
-                tempo = 0L;  // Defina um valor padrão para nulo
-            }
-
-            if (tempo == 0) {
-                setTempo(tempoAtual);
-            } else {
-                long tempoDentro = tempoAtual - tempo;
-                setTempo(tempoDentro);
-            }
-
+            addTempoMedido(tempoAtual);
             setAtualizado(true);
             imprimirInformacoes(context);
         }
     }
 
     public boolean dentroDaGeocerca(LatLng ponto) {
-        // Método para verificar se o ponto está dentro da geocerca
         float[] results = new float[1];
         Location.distanceBetween(centro.latitude, centro.longitude, ponto.latitude, ponto.longitude, results);
         return results[0] <= geocerca.getRaio();
     }
 
-    // Método para imprimir informações do fluxo
-    // Exemplo de uso
-    public void imprimirInformacoes(Context context) {
-        String fluxoId = String.valueOf(getId());
-        String coordenadas = centro.toString();
-        String distanciaInfo = distancia != null ? String.valueOf(distancia) : "não definida";
-        String velocidadeInfo = "";
+    public void calcularTempoMedio() {
+        if (distancia != null && velocidadeMedia != 0) {
+            float tempo = distancia / (velocidadeMedia/3.6f);
+            this.tempoEsperado = (long) tempo;
+        } else {
+            float tempo = 0;
+            this.tempoEsperado = (long) tempo; // Ou um valor padrão
+            // Trate a situação de erro conforme a lógica da sua aplicação
+            System.out.println("Distância ou velocidade média não definida.");
+        }
+    }
 
+
+    // Método para imprimir informações do fluxo
+    public void imprimirInformacoes(Context context) {
         System.out.println("Fluxo ID: " + getId());
         System.out.println("Coordenadas: " + centro);
-        System.out.println("Distância: " + (distancia != null ? distancia : "não definida"));
+        System.out.println("Distância: " + (distancia != null ? distancia : "não definida") + " m");
+        System.out.println("Velocidade Média: " + getVelocidadeMedia() + " Km/h");
+        System.out.println("Tempo Esperado: " + getTempoEsperado() + " s");
 
-        if (velocidade != null && !velocidade.isEmpty()) {
-            System.out.println("Simulação (total: " + velocidade .size() + "):");
-            StringBuilder sb = new StringBuilder();
-            sb.append("Simulação (total: ").append(velocidade.size()).append("):\n");
-            for (int i = 0; i < velocidade.size(); i++) {
-                Float vel = velocidade.get(i);
-                System.out.println("  Velocidade " + (i + 1) + ": " + vel + " km/h");
+        if (velocidades != null && !velocidades.isEmpty()) {
+            StringBuilder sb = new StringBuilder("Simulação (total: ").append(velocidades.size()).append("):\n");
+            for (int i = 0; i < velocidades.size(); i++) {
+                Float vel = velocidades.get(i);
                 sb.append("  Velocidade ").append(i + 1).append(": ").append(vel).append(" km/h\n");
             }
-            velocidadeInfo = sb.toString();
+            System.out.println(sb);
         } else {
-            velocidadeInfo = "Velocidade: não definida";
             System.out.println("Velocidade: não definida");
         }
 
-        // Combine todas as informações em uma única mensagem
-        String notificationMessage = "Fluxo ID: " + fluxoId + "\n" +
-                "     Speed: " + velocidade;
+        if (temposMedidos != null && !temposMedidos.isEmpty()) {
+            StringBuilder temposInfo = new StringBuilder();
+            for (int i = 0; i < temposMedidos.size(); i++) {
+                Long tempo = temposMedidos.get(i);
+                temposInfo.append("  Tempo ").append(i + 1).append(": ").append(tempo).append(" s\n");
+            }
+            System.out.println(temposInfo);
+        } else {
+            System.out.println("Tempos: não definidos");
+        }
 
-        // Crie e envie a notificação
+        // Envio de notificação (se aplicável)
+        String notificationMessage = "Fluxo ID: " + getId() + "\n     Speed: " + velocidades;
         NotificationHelper notificationHelper = new NotificationHelper(context);
         notificationHelper.sendNotification("Atualização de Localização", notificationMessage);
     }

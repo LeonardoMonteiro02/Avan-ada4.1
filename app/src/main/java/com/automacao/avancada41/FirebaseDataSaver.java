@@ -36,6 +36,7 @@ public class FirebaseDataSaver extends Thread {
         this.semaphore = semaphore;
     }
 
+   public FirebaseDataSaver (){}
 
     public Context getContexto() {
         return context;
@@ -89,12 +90,50 @@ public class FirebaseDataSaver extends Thread {
 
     public void stopThread() {
         running = false; // Método para parar o loop
-        //retrieveData();
+
+    }
+    public String obterNomeFluxo(int id, int indexroute) {
+        String nome;
+        Log.e("Recuperar Dados", "Chamando a busca de dados" + "Id: " +id+ " indexroute: " + indexroute);
+        if (id != 0 && indexroute == 0) {
+            switch (id) {
+                case 1:
+                    nome = "Rota1";
+                    break;
+                case 7:
+                    nome = "Rota2";
+                    break;
+                case 13:
+                    nome = "Rota3";
+                    break;
+                default:
+                    nome = "fluxo desconhecido";
+                    break;
+            }
+        }else {
+            switch (indexroute) {
+                case 1:
+                    nome = "Rota1";
+                    break;
+                case 2:
+                    nome = "Rota2";
+                    break;
+                case 3:
+                    nome = "Rota3";
+                    break;
+                default:
+                    nome = "fluxo desconhecido";
+                    break;
+
+            }
+        }
+        return nome;
     }
 
     private void saveData() {
         long startTime = System.nanoTime();
-        DatabaseReference regiao = referencia.child("Fluxos");
+
+        DatabaseReference regiao = referencia.child(obterNomeFluxo(copy.get(0).getId(),0));
 
         for (Fluxo fluxo : copy) {
             // Convertendo a região para JSON diretamente, sem criptografia
@@ -122,69 +161,145 @@ public class FirebaseDataSaver extends Thread {
         return gson.toJson(fluxo);
     }
     // Novo método para recuperar dados do banco
-    public void retrieveData(OnDataRetrievedListener listener) {
-        DatabaseReference ref = referencia.child("Fluxos");
+    public void retrieveData(OnDataRetrievedListener listener,int id,  int indexroute) {
+
+        DatabaseReference ref = referencia.child(obterNomeFluxo(id,indexroute));
 
         ref.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                copy.clear(); // Limpa a lista antes de adicionar novos dados
-
+               if (copy == null) {
+                   copy = new ArrayList<>(); // Limpa a lista antes de adicionar novos dados
+               }
+               copy.clear();
                 // Usando CountDownLatch para aguardar todas as operações serem concluídas
                 int childrenCount = (int) dataSnapshot.getChildrenCount();
                 CountDownLatch latch = new CountDownLatch(childrenCount);
 
                 for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+
                     new Thread(() -> {
                         Fluxo fluxo = new Fluxo();
 
+                        // Preencher ID
                         Integer id = snapshot.child("id").getValue(Integer.class);
                         if (id != null) {
                             fluxo.setId(id);
                         }
 
-                        Long tempo = snapshot.child("tempo").getValue(Long.class);
-                        if (tempo != null) {
-                            fluxo.setTempo(tempo);
+
+                        // Preencher Velocidade Média
+                        Float velocidadeMedia = snapshot.child("velocidadeMedia").getValue(Float.class);
+                        if (velocidadeMedia != null) {
+                            fluxo.setVelocidadeMedia(velocidadeMedia);
                         }
 
+                        // Preencher Tempo médio
+                        Long tempoMedio = snapshot.child("tempoEsperado").getValue(Long.class);
+                        if (tempoMedio != null) {
+                            fluxo.setTempoEsperado(tempoMedio);
+                        }
 
-                        for (DataSnapshot velSnapshot : snapshot.child("velocidade").getChildren()) {
+                        // Preencher tempos
+                        for (DataSnapshot tempoSnapshot : snapshot.child("temposMedidos").getChildren()) {
+                            Long tempo = tempoSnapshot.getValue(Long.class);
+                            if (tempo != null) {
+                                fluxo.addTempoMedido(tempo);
+                            }
+                        }
+
+                        // Preencher velocidades
+                        for (DataSnapshot velSnapshot : snapshot.child("velocidades").getChildren()) {
                             Float velocidade = velSnapshot.getValue(Float.class);
                             if (velocidade != null) {
                                 fluxo.setVelocidade(velocidade);
                             }
                         }
 
+                        // Preencher atualizado
                         Boolean atualizado = snapshot.child("atualizado").getValue(Boolean.class);
                         if (atualizado != null) {
                             fluxo.setAtualizado(atualizado);
                         }
 
+                        // Preencher distância
+                        Float distancia = snapshot.child("distancia").getValue(Float.class);
+                        if (distancia != null) {
+                            fluxo.setDistancia(distancia);
+                        }
+
+                        // Preencher Geocerca
                         DataSnapshot geocercaSnapshot = snapshot.child("geocerca");
                         if (geocercaSnapshot.exists()) {
                             Geocerca geocerca = new Geocerca();
 
-                            LatLng centro = null;
-                            Double latitude = geocercaSnapshot.child("latitude").getValue(Double.class);
-                            Double longitude = geocercaSnapshot.child("longitude").getValue(Double.class);
-                            if (latitude != null && longitude != null) {
-                                centro = new LatLng(latitude, longitude);
+                            // Preencher centro da geocerca
+                            DataSnapshot centroSnapshot = geocercaSnapshot.child("centro");
+                            if (centroSnapshot.exists()) {
+                                Double latitude = centroSnapshot.child("latitude").getValue(Double.class);
+                                Double longitude = centroSnapshot.child("longitude").getValue(Double.class);
+
+                                // Tratamento para evitar null em latitude e longitude
+                                if (latitude == null || longitude == null) {
+                                    String latitudeStr = centroSnapshot.child("latitude").getValue(String.class);
+                                    String longitudeStr = centroSnapshot.child("longitude").getValue(String.class);
+
+                                    if (latitudeStr != null && longitudeStr != null) {
+                                        try {
+                                            latitude = Double.parseDouble(latitudeStr);
+                                            longitude = Double.parseDouble(longitudeStr);
+                                        } catch (NumberFormatException e) {
+                                            Log.e("Geocerca", "Erro ao converter latitude ou longitude", e);
+                                        }
+                                    }
+                                }
+
+                                if (latitude != null && longitude != null) {
+                                    LatLng centro = new LatLng(latitude, longitude);
+                                    geocerca.setCentro(centro);
+                                    fluxo.setCentro(centro); // Atualize o centro do fluxo também
+                                } else {
+                                    Log.d("Geocerca", "Latitude ou longitude é nulo");
+                                }
+                            } else {
+                                Log.d("Geocerca", "Centro não encontrado no snapshot");
                             }
 
-                            Integer raio = geocercaSnapshot.child("raio").getValue(Integer.class);
-                            if (centro != null && raio != null) {
-                                geocerca.setCentro(centro);
+                            // Preencher raio da geocerca
+                            Float raio = geocercaSnapshot.child("raio").getValue(Float.class);
+                            if (raio != null) {
                                 geocerca.setRaio(raio);
+                            } else {
+                                Log.d("Geocerca", "Raio é nulo");
                             }
 
+                            // Preencher cor de contorno e preenchimento
+                            Integer corContorno = geocercaSnapshot.child("corContorno").getValue(Integer.class);
+                            if (corContorno != null) {
+                                geocerca.setCorContorno(corContorno);
+                            } else {
+                                Log.d("Geocerca", "Cor de contorno é nulo");
+                            }
+
+                            Integer corPreenchimento = geocercaSnapshot.child("corPreenchimento").getValue(Integer.class);
+                            if (corPreenchimento != null) {
+                                geocerca.setCorPreenchimento(corPreenchimento);
+                            } else {
+                                Log.d("Geocerca", "Cor de preenchimento é nulo");
+                            }
+
+                            // Definir a geocerca no fluxo
                             fluxo.setGeocerca(geocerca);
+                        } else {
+                            Log.d("Geocerca", "Geocerca não encontrada no snapshot");
                         }
 
+                        // Adiciona o fluxo à lista e decrementa o latch
                         copy.add(fluxo);
                         latch.countDown();
                     }).start();
                 }
+
 
                 try {
                     latch.await();

@@ -1,6 +1,7 @@
 package com.automacao.avancada41;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
@@ -70,7 +71,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private List<Fluxo> fluxos = new ArrayList<>();
     private List<Fluxo> copy = new ArrayList<>();
-    private FirebaseDataSaver firebaseDataSaver;
+    private FirebaseDataSaver firebaseDataSaver = new FirebaseDataSaver();
 
 
 
@@ -210,7 +211,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         if (startLatLng != null && destinationLatLng != null) {
                             // Crie uma instância do RouteCalculator e calcule a rotaRouteCalculator routeCalculator = new RouteCalculator(mMap, startLatLng, destinationLatLng, this);
 
-                            RouteCalculator routeCalculator = new RouteCalculator(mMap, startLatLng, destinationLatLng, MainActivity.this, MainActivity.this);
+                            RouteCalculator routeCalculator = new RouteCalculator(
+                                    mMap,
+                                    startLatLng,
+                                    destinationLatLng,
+                                    MainActivity.this, // Passa o contexto da Activity
+                                    MainActivity.this, // Passa o ouvinte para o callback de geocercas
+                                    firebaseDataSaver
+                            );
                             routeCalculator.calculateRoute();
                         } else {
                             // Mostre uma mensagem se as coordenadas não estiverem disponíveis
@@ -303,7 +311,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-        long currentTimeMillis = System.currentTimeMillis();
+        float speed = location.getSpeed();
+        long currentTimeMillis = 0;
         boolean todosAtualizados = true;  // Flag para verificar se todos os fluxos foram atualizados
         boolean dentroDeAlgumaGeocerca = false;  // Flag para verificar se ainda está dentro de alguma geocerca
 
@@ -312,7 +321,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             for (Fluxo fluxo : fluxos) {
                 if (fluxo.dentroDaGeocerca(currentLatLng)) {
                     // Atualiza o fluxo somente se ainda não foi atualizado
-                    fluxo.atualizarInformacoes(location.getSpeed() * 3.6f, currentTimeMillis, MainActivity.this);
+                    currentTimeMillis = (long)(fluxo.getDistancia()/speed);
+                    fluxo.atualizarInformacoes(speed * 3.6f, currentTimeMillis, MainActivity.this);
                     dentroDeAlgumaGeocerca = true;  // Ainda está dentro de uma geocerca
                 }
 
@@ -517,7 +527,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-                recuperarDados(firebaseDataSaver);
+              //  recuperarDados(firebaseDataSaver);
             } else {
                 // Registra uma mensagem de log se a thread já estiver em execução
                 Log.d("HomeFragment", "Thread já está em execução.");
@@ -533,20 +543,23 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             Toast.makeText(this, "Localização atual não disponível.", Toast.LENGTH_SHORT).show();
         }
     }
-    public void recuperarDados(FirebaseDataSaver firebaseDataSaver) {
+    public void recuperarDados(FirebaseDataSaver firebaseDataSaver, int indexRout) {
         firebaseDataSaver.retrieveData(new OnDataRetrievedListener() {
             @Override
             public void onDataRetrieved(List<Fluxo> fluxos) {
                 if (fluxos != null) {
                     // Realize as ações que precisam dos dados carregados aqui
-                    for (Fluxo fluxo : fluxos) {
-                        Log.d("MainActivity", "Fluxo recuperado: "+  fluxo.getId()+", Velocidade: " + fluxo.getVelocidade().size());
+                    if (fluxos.get(0).getVelocidades().size() >= 4) {
+                        List<Long> tempo = new ArrayList<>();
+                        EstatisticasTempos estatisticasTempos = new EstatisticasTempos(fluxos);
+                        estatisticasTempos.imprimirRelatorio();
                     }
+
                 } else {
                     Log.e("MainActivity", "Erro ao recuperar os dados ou lista vazia.");
                 }
             }
-        });
+        },0,indexRout);
     }
 
 }

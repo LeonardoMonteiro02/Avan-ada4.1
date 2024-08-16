@@ -35,16 +35,39 @@ public class RouteCalculator {
     private LatLng destinationLatLng;
     private Context context;
     private OnGeofencesCreatedListener listener;
+    private  List<Fluxo> listaFluxobanco = new ArrayList<>();
+    private int indexRota = 0;
 
 
-    public RouteCalculator(GoogleMap map, LatLng startLatLng, LatLng destinationLatLng, Context context, OnGeofencesCreatedListener listener) {
+    public RouteCalculator(GoogleMap map, LatLng startLatLng, LatLng destinationLatLng, Context context, OnGeofencesCreatedListener listener, FirebaseDataSaver firebaseDataSaver) {
         this.map = map;
         this.startLatLng = startLatLng;
         this.destinationLatLng = destinationLatLng;
         this.context = context;
         this.listener = listener;
 
+
     }
+    public void recuperarDados(FirebaseDataSaver firebaseDataSaver) {
+        firebaseDataSaver.retrieveData(new OnDataRetrievedListener() {
+            @Override
+            public void onDataRetrieved(List<Fluxo> fluxos) {
+                if (fluxos != null) {
+
+                    listaFluxobanco = fluxos;
+                    for (Fluxo fluxo : fluxos) {
+                        Log.d("Route", "Fluxo recuperado: "+   fluxo.getId()+", Velocidade: " + fluxo.getVelocidades()+  ", Centro: " + fluxo.getGeocerca().getCentro());
+
+                    }
+
+                } else {
+                    Log.e("MainActivity", "Erro ao recuperar os dados ou lista vazia.");
+
+                }
+            }
+        },0,indexRota);
+    }
+
 
     public void calculateRoute() {
         AsyncTask<Void, Integer, Boolean> task = new AsyncTask<Void, Integer, Boolean>() {
@@ -156,6 +179,7 @@ public class RouteCalculator {
                 }
             }
 
+
             @Override
             protected void onPostExecute(Boolean result) {
                 if (!result) {
@@ -173,19 +197,13 @@ public class RouteCalculator {
                     new android.app.AlertDialog.Builder(context)
                             .setTitle("Escolha uma rota")
                             .setItems(routeOptions, (dialog, which) -> {
+                                indexRota = which + 1;
+                                Log.d("RouteSelection", "Rota selecionada com índice: " + indexRota);
+
+                                recuperarDados(new FirebaseDataSaver());
+
+
                                 map.clear();  // Limpa o mapa antes de desenhar a nova rota
-
-                                // Adiciona o marcador de partida
-                                map.addMarker(new MarkerOptions()
-                                        .position(startLatLng)
-                                        .title("Partida")
-                                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
-
-                                // Adiciona o marcador de destino
-                                map.addMarker(new MarkerOptions()
-                                        .position(destinationLatLng)
-                                        .title("Destino")
-                                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
                                 // Desenha a rota selecionada
                                 PolylineOptions polylineOptions = new PolylineOptions();
@@ -217,15 +235,16 @@ public class RouteCalculator {
             }
 
             // Método para adicionar uma geocerca e um marcador com rótulo no mapa
+            // Método para adicionar uma geocerca e um marcador com rótulo no mapa
             private void addGeofences(List<LatLng> route) {
                 Fluxo.resetIdCounter();
                 int geofenceCount = 6;
                 List<Fluxo> fluxos = new ArrayList<>();
-
-                float[] intervals = new float[geofenceCount - 1];
+                Log.d("Geofence", "Geocerca de tamanho: " + listaFluxobanco.size());
                 float totalDistance = 0;
                 LatLng prevLatLng = route.get(0);
 
+                // Primeiro, calcula a distância total ao longo da rota
                 for (int i = 1; i < route.size(); i++) {
                     LatLng currentLatLng = route.get(i);
                     float[] results = new float[1];
@@ -238,67 +257,122 @@ public class RouteCalculator {
                 }
 
                 float interval = totalDistance / (geofenceCount - 1);
-
-                for (int i = 0; i < geofenceCount - 1; i++) {
-                    intervals[i] = interval * (i + 1);
-                }
-
-                intervals[geofenceCount - 2] = totalDistance;
-
                 prevLatLng = route.get(0);
-                int intervalIndex = 0;
                 float accumulatedDistance = 0;
+                float pointDistance = 0;
+                float nextGeofenceDistance = interval;
 
-                // Adiciona geocercas para o ponto de partida e destino
-                Fluxo fluxoInicio = new Fluxo(route.get(0), null, null);
-                fluxos.add(fluxoInicio);
-                fluxoInicio.adicionarGeocercaNoMapa(map);
-                map.addMarker(new MarkerOptions()
-                        .position(route.get(0))
-                        .title("Início")
-                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-                Log.d("Geofence", "Geocerca de início adicionada em: " + route.get(0).toString());
 
-                for (int i = 1; i < route.size()-1; i++) {
-                    LatLng currentLatLng = route.get(i);
-                    float[] results = new float[1];
-                    android.location.Location.distanceBetween(
-                            prevLatLng.latitude, prevLatLng.longitude,
-                            currentLatLng.latitude, currentLatLng.longitude,
-                            results);
-                    accumulatedDistance += results[0];
-                    if (accumulatedDistance >= intervals[intervalIndex]) {
-                        Fluxo fluxo = new Fluxo(currentLatLng, null, null);
-                        fluxos.add(fluxo);
 
-                        // Adiciona o círculo da geocerca no mapa
+                if ((listaFluxobanco != null && !listaFluxobanco.isEmpty()) &&
+                        (checkDistances(listaFluxobanco.get(0).getCentro(), listaFluxobanco.get(listaFluxobanco.size() - 1).getCentro())) &&
+                        compactibilidade(listaFluxobanco)) {
+
+                    // Adiciona geocerca para o ponto de início
+                    fluxos = listaFluxobanco;
+                    Fluxo fluxoInicio = fluxos.get(0);
+                    LatLng pontoInicio = fluxoInicio.getGeocerca().getCentro();
+                    map.addMarker(new MarkerOptions()
+                            .position(pontoInicio)
+                            .title("Início")
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+                    fluxoInicio.adicionarGeocercaNoMapa(map);
+                    Log.d("Geofence", "Geocerca de início adicionada em: " + pontoInicio.toString());
+
+                    // Adiciona geocercas e marcadores para os pontos intermediários
+                    for (int i = 1; i < fluxos.size()-1; i++) {
+                        Fluxo fluxo = fluxos.get(i);
+                        LatLng pontoAtual = fluxo.getGeocerca().getCentro();
+
+                        // Adiciona a geocerca no mapa
                         fluxo.adicionarGeocercaNoMapa(map);
 
                         // Adiciona um marcador com rótulo no mapa
                         map.addMarker(new MarkerOptions()
-                                .position(currentLatLng)
-                                .title("Geocerca " + (fluxos.size()))  // Nome da geocerca
+                                .position(pontoAtual)
+                                .title("Geocerca " + (i + 1))  // Nome da geocerca
                                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));  // Cor do marcador
-                        Log.d("Geofence", "Geocerca adicionada em: " + currentLatLng.toString());
-
-                        intervalIndex++;
-                        if (intervalIndex >= intervals.length) {
-                            break;
-                        }
+                        Log.d("Geofence", "Geocerca adicionada em: " + pontoAtual.toString());
                     }
 
-                    prevLatLng = currentLatLng;
+                    // Adiciona geocerca para o ponto final
+                    Fluxo fluxoFim = fluxos.get(fluxos.size() - 1);
+                    LatLng pontoFinal = fluxoFim.getGeocerca().getCentro();
+                    map.addMarker(new MarkerOptions()
+                            .position(pontoFinal)
+                            .title("Fim")
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+                    fluxoFim.adicionarGeocercaNoMapa(map);
+                    Log.d("Geofence", "Geocerca de fim adicionada em: " + pontoFinal.toString());
+
+                }
+                else {
+                    // Caso contrário, cria as geocercas normalmente
+                    // Adiciona geocerca para o ponto de partida
+                    if (indexFluxo() != 0) {
+                        Fluxo.setNextIdCounter(indexFluxo());
+                        Fluxo fluxoInicio = new Fluxo(route.get(0), 0f,0f);
+                        fluxoInicio.calcularTempoMedio();
+                        fluxoInicio.imprimirInformacoes(context);
+                        fluxos.add(fluxoInicio);
+                        fluxoInicio.adicionarGeocercaNoMapa(map);
+                        map.addMarker(new MarkerOptions()
+                                .position(route.get(0))
+                                .title("Início")
+                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+                        Log.d("Geofence", "Geocerca de início adicionada em: " + route.get(0).toString());
+
+                        for (int i = 1; i < route.size(); i++) {
+                            LatLng currentLatLng = route.get(i);
+                            float[] results = new float[1];
+                            android.location.Location.distanceBetween(
+                                    prevLatLng.latitude, prevLatLng.longitude,
+                                    currentLatLng.latitude, currentLatLng.longitude,
+                                    results);
+
+                            accumulatedDistance += results[0];
+
+                            if (accumulatedDistance >= nextGeofenceDistance && fluxos.size() < geofenceCount - 1) {
+
+                               float velocidadeMedia =((routeDistances.get(indexRota-1)*1000)/(routeTimes.get(indexRota-1)*60))*3.6f;
+                                Fluxo fluxo = new Fluxo(currentLatLng, accumulatedDistance - pointDistance, velocidadeMedia);
+                                fluxo.calcularTempoMedio();
+                                fluxo.imprimirInformacoes(context);
+                                fluxos.add(fluxo);
+                                pointDistance = accumulatedDistance;
+
+                                // Adiciona o círculo da geocerca no mapa
+                                fluxo.adicionarGeocercaNoMapa(map);
+
+                                // Adiciona um marcador com rótulo no mapa
+                                map.addMarker(new MarkerOptions()
+                                        .position(currentLatLng)
+                                        .title("Geocerca " + (fluxos.size()))  // Nome da geocerca
+                                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));  // Cor do marcador
+                                Log.d("Geofence", "Geocerca adicionada em: " + currentLatLng.toString());
+
+                                nextGeofenceDistance += interval;
+                            }
+
+                            prevLatLng = currentLatLng;
+                        }
+
+                        // Adiciona geocerca para o ponto final
+                       float velocidadeMedia = ((routeDistances.get(indexRota-1)*1000)/(routeTimes.get(indexRota-1)*60))*3.6f;
+                        LatLng finalLatLng = route.get(route.size() - 1);
+                        Fluxo fluxoFim = new Fluxo(finalLatLng, accumulatedDistance - pointDistance,velocidadeMedia);  // Adiciona a distância final acumulada
+                        fluxoFim.calcularTempoMedio();
+                        fluxoFim.imprimirInformacoes(context);
+                        fluxos.add(fluxoFim);
+                        fluxoFim.adicionarGeocercaNoMapa(map);
+                        map.addMarker(new MarkerOptions()
+                                .position(finalLatLng)
+                                .title("Fim")
+                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+                        Log.d("Geofence", "Geocerca de fim adicionada em: " + finalLatLng.toString());
+                    }
                 }
 
-
-                Fluxo fluxoFim = new Fluxo(route.get(route.size() - 1), null, null);
-                fluxos.add(fluxoFim);
-                fluxoFim.adicionarGeocercaNoMapa(map);
-                map.addMarker(new MarkerOptions()
-                        .position(route.get(route.size() - 1))
-                        .title("Fim")
-                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-                Log.d("Geofence", "Geocerca de fim adicionada em: " + route.get(route.size() - 1).toString());
                 if (listener != null) {
                     Log.d("Geofence", "Notificando listener com " + fluxos.size() + " fluxos.");
                     listener.onGeofencesCreated(fluxos);
@@ -306,8 +380,62 @@ public class RouteCalculator {
                     Log.d("Geofence", "Listener é null.");
                 }
             }
-        };
 
+
+            // Função para calcular a distância entre dois pontos
+            private double calculateDistance(LatLng pointA, LatLng pointB) {
+                final double R = 6371000.0; // Raio da Terra em metros
+                double lat1 = pointA.latitude;
+                double lon1 = pointA.longitude;
+                double lat2 = pointB.latitude;
+                double lon2 = pointB.longitude;
+
+                double dLat = Math.toRadians(lat2 - lat1);
+                double dLon = Math.toRadians(lon2 - lon1);
+                double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                        Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            }
+
+            // Função para verificar as distâncias
+            public Boolean checkDistances(LatLng partida, LatLng destino) {
+                LatLng point1 = startLatLng;
+                LatLng point2 = destinationLatLng;
+                // Calcula as distâncias necessárias
+                double distancePartidaPoint1 = calculateDistance(partida, point1);
+                double distanceDestinoPoint2 = calculateDistance(destino, point2);
+                // Imprime as distâncias
+                System.out.println("Distância entre o ponto de partida e point1: " + distancePartidaPoint1 + " metros");
+                System.out.println("Distância entre o ponto de destino e point2: " + distanceDestinoPoint2 + " metros");
+
+                // Verifica se ambas as distâncias são menores ou iguais a 5 metros
+                return distancePartidaPoint1 <= 25 && distanceDestinoPoint2 <= 25;
+            }
+            public  Boolean compactibilidade (List <Fluxo> fluxos) {
+                if (indexRota == 1 & fluxos.get(0).getId() == 1) {
+                    return true;
+                } else if (indexRota == 2 & fluxos.get(0).getId() == 7) {
+                    return true;
+                } else if (indexRota == 3 & fluxos.get(0).getId() == 13) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            public int indexFluxo( ) {
+                if (indexRota < 1) {
+                    return 0; // Para indexRota inválido
+                }
+
+                int a1 = 1; // Primeiro termo da progressão
+                int d = 6;  // Diferença comum
+
+                return a1 + (indexRota - 1) * d;
+            }
+
+        };
         task.execute();
     }
 }
