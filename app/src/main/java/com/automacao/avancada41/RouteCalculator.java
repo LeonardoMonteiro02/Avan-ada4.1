@@ -48,25 +48,7 @@ public class RouteCalculator {
 
 
     }
-    public void recuperarDados(FirebaseDataSaver firebaseDataSaver) {
-        firebaseDataSaver.retrieveData(new OnDataRetrievedListener() {
-            @Override
-            public void onDataRetrieved(List<Fluxo> fluxos) {
-                if (fluxos != null) {
 
-                    listaFluxobanco = fluxos;
-                    for (Fluxo fluxo : fluxos) {
-                        Log.d("Route", "Fluxo recuperado: "+   fluxo.getId()+", Velocidade: " + fluxo.getVelocidades()+  ", Centro: " + fluxo.getGeocerca().getCentro());
-
-                    }
-
-                } else {
-                    Log.e("MainActivity", "Erro ao recuperar os dados ou lista vazia.");
-
-                }
-            }
-        },0,indexRota);
-    }
 
 
     public void calculateRoute() {
@@ -100,7 +82,6 @@ public class RouteCalculator {
                     }
 
                     JSONArray routesArray = jsonResponse.getJSONArray("routes");
-                    Log.d(TAG, "Number of routes: " + routesArray.length());
                     for (int r = 0; r < routesArray.length(); r++) {
                         JSONObject route = routesArray.getJSONObject(r);
                         JSONObject overviewPolyline = route.getJSONObject("overview_polyline");
@@ -114,8 +95,6 @@ public class RouteCalculator {
                         String distanceText = leg.getJSONObject("distance").getString("text");
                         String durationText = leg.getJSONObject("duration").getString("text");
 
-                        Log.e(TAG, "Distancia da rota: " + distanceText);
-                        Log.e(TAG, "Tempo da rota: " + durationText);
                         routeDistances.add(getDistanceFromText(distanceText)); // Convert to km
                         routeTimes.add(getDurationFromText(durationText)); // Convert to MIN
                     }
@@ -131,6 +110,26 @@ public class RouteCalculator {
                 }
             }
 
+            public void recuperarDados(FirebaseDataSaver firebaseDataSaver) {
+                firebaseDataSaver.retrieveData(new OnDataRetrievedListener() {
+                    @Override
+                    public void onDataRetrieved(List<Fluxo> fluxos) {
+                        if (fluxos != null) {
+
+                            listaFluxobanco = fluxos;
+                            if(listaFluxobanco.size() == 6 || listaFluxobanco.size() == 0){
+                                addGeofences(routes.get(indexRota-1));
+                            }
+
+                        } else {
+                            Log.e("MainActivity", "Erro ao recuperar os dados ou lista vazia.");
+
+                        }
+                    }
+                },0,indexRota);
+
+
+            }
             private float getDistanceFromText(String text) {
                 String numericText = text.replaceAll("[^\\d.]", "");
                 return Float.parseFloat(numericText);
@@ -198,11 +197,6 @@ public class RouteCalculator {
                             .setTitle("Escolha uma rota")
                             .setItems(routeOptions, (dialog, which) -> {
                                 indexRota = which + 1;
-                                Log.d("RouteSelection", "Rota selecionada com índice: " + indexRota);
-
-                                recuperarDados(new FirebaseDataSaver());
-
-
                                 map.clear();  // Limpa o mapa antes de desenhar a nova rota
 
                                 // Desenha a rota selecionada
@@ -228,7 +222,8 @@ public class RouteCalculator {
                                 String combinedMessage = distanceMessage + "\n" + timeMessage;
 
                                 Toast.makeText(context, combinedMessage, Toast.LENGTH_SHORT).show();
-                                addGeofences(routes.get(which));
+                                recuperarDados(new FirebaseDataSaver());
+
                             })
                             .show();
                 }
@@ -240,7 +235,6 @@ public class RouteCalculator {
                 Fluxo.resetIdCounter();
                 int geofenceCount = 6;
                 List<Fluxo> fluxos = new ArrayList<>();
-                Log.d("Geofence", "Geocerca de tamanho: " + listaFluxobanco.size());
                 float totalDistance = 0;
                 LatLng prevLatLng = route.get(0);
 
@@ -277,8 +271,6 @@ public class RouteCalculator {
                             .title("Início")
                             .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
                     fluxoInicio.adicionarGeocercaNoMapa(map);
-                    Log.d("Geofence", "Geocerca de início adicionada em: " + pontoInicio.toString());
-
                     // Adiciona geocercas e marcadores para os pontos intermediários
                     for (int i = 1; i < fluxos.size()-1; i++) {
                         Fluxo fluxo = fluxos.get(i);
@@ -292,7 +284,6 @@ public class RouteCalculator {
                                 .position(pontoAtual)
                                 .title("Geocerca " + (i + 1))  // Nome da geocerca
                                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));  // Cor do marcador
-                        Log.d("Geofence", "Geocerca adicionada em: " + pontoAtual.toString());
                     }
 
                     // Adiciona geocerca para o ponto final
@@ -303,7 +294,6 @@ public class RouteCalculator {
                             .title("Fim")
                             .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
                     fluxoFim.adicionarGeocercaNoMapa(map);
-                    Log.d("Geofence", "Geocerca de fim adicionada em: " + pontoFinal.toString());
 
                 }
                 else {
@@ -320,7 +310,6 @@ public class RouteCalculator {
                                 .position(route.get(0))
                                 .title("Início")
                                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-                        Log.d("Geofence", "Geocerca de início adicionada em: " + route.get(0).toString());
 
                         for (int i = 1; i < route.size(); i++) {
                             LatLng currentLatLng = route.get(i);
@@ -349,7 +338,6 @@ public class RouteCalculator {
                                         .position(currentLatLng)
                                         .title("Geocerca " + (fluxos.size()))  // Nome da geocerca
                                         .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));  // Cor do marcador
-                                Log.d("Geofence", "Geocerca adicionada em: " + currentLatLng.toString());
 
                                 nextGeofenceDistance += interval;
                             }
@@ -369,12 +357,10 @@ public class RouteCalculator {
                                 .position(finalLatLng)
                                 .title("Fim")
                                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-                        Log.d("Geofence", "Geocerca de fim adicionada em: " + finalLatLng.toString());
                     }
                 }
 
                 if (listener != null) {
-                    Log.d("Geofence", "Notificando listener com " + fluxos.size() + " fluxos.");
                     listener.onGeofencesCreated(fluxos);
                 } else {
                     Log.d("Geofence", "Listener é null.");
@@ -406,9 +392,7 @@ public class RouteCalculator {
                 // Calcula as distâncias necessárias
                 double distancePartidaPoint1 = calculateDistance(partida, point1);
                 double distanceDestinoPoint2 = calculateDistance(destino, point2);
-                // Imprime as distâncias
-                System.out.println("Distância entre o ponto de partida e point1: " + distancePartidaPoint1 + " metros");
-                System.out.println("Distância entre o ponto de destino e point2: " + distanceDestinoPoint2 + " metros");
+
 
                 // Verifica se ambas as distâncias são menores ou iguais a 5 metros
                 return distancePartidaPoint1 <= 25 && distanceDestinoPoint2 <= 25;

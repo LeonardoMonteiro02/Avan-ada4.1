@@ -234,7 +234,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             findViewById(R.id.buttonBancoDeDados).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    ;
+
+                    firebaseDataSaver.contarReferenciasDiretas(new FirebaseCallback() {
+                        @Override
+                        public void onCallback(long count) {
+                            // Aqui você recebe o valor do callback
+
+                            for (int i = 1; i < (int) count; i++) {
+                                System.out.println("Iteração número: " + i);
+                                recuperarDados(firebaseDataSaver, i); // Chama o método recuperarDados para cada valor de i
+                            }
+
+                        }
+                    });
+
                 }
             });
         }
@@ -326,6 +339,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     dentroDeAlgumaGeocerca = true;  // Ainda está dentro de uma geocerca
                 }
 
+
+
                 // Verifica se algum fluxo ainda não foi atualizado
                 if (!fluxo.isAtualizado()) {
                     todosAtualizados = false;
@@ -394,6 +409,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
             // Move a câmera do mapa para a nova posição com um nível de zoom de 15
+           //
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 18));
         }
     }
@@ -527,7 +543,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-              //  recuperarDados(firebaseDataSaver);
+
             } else {
                 // Registra uma mensagem de log se a thread já estiver em execução
                 Log.d("HomeFragment", "Thread já está em execução.");
@@ -544,9 +560,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
     public void recuperarDados(FirebaseDataSaver firebaseDataSaver, int indexRout) {
+        System.out.println("Iniciando recuperação de dados");
         firebaseDataSaver.retrieveData(new OnDataRetrievedListener() {
             @Override
             public void onDataRetrieved(List<Fluxo> fluxos) {
+                Log.e("Recuperar", "Lista de recuperação" + fluxos.size());
                 if (fluxos != null) {
                     // Realize as ações que precisam dos dados carregados aqui
                     if (fluxos.get(0).getVelocidades().size() >= 4) {

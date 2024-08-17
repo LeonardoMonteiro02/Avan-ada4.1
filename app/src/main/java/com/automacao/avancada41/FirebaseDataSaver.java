@@ -72,13 +72,13 @@ public class FirebaseDataSaver extends Thread {
                 if (copy.isEmpty()) {
                     semaphore.release(); // Release semaphore after saving
                     synchronized (copy) {
-                        Log.d(TAG, "Aguardando lista");
+
                         copy.wait(); // Aguardar até que a lista não esteja mais vazia
                     }
                 } else {
                     saveData();
                     semaphore.release(); // Release semaphore after saving
-                    Log.d(TAG, "Semafaro Liberado.");
+
                 }
 
             } catch (InterruptedException e) {
@@ -94,7 +94,6 @@ public class FirebaseDataSaver extends Thread {
     }
     public String obterNomeFluxo(int id, int indexroute) {
         String nome;
-        Log.e("Recuperar Dados", "Chamando a busca de dados" + "Id: " +id+ " indexroute: " + indexroute);
         if (id != 0 && indexroute == 0) {
             switch (id) {
                 case 1:
@@ -147,12 +146,7 @@ public class FirebaseDataSaver extends Thread {
 
         Log.d(TAG, "Dados Salvos no Servidor!");
 
-        // Registra o tempo de término para salvar no banco
-        long endTime = System.nanoTime();
-        // Calcula o tempo decorrido em milissegundos
-        long elapsedTime = endTime - startTime;
-        // Use o tempo decorrido conforme necessário, como registrá-lo em logs ou realizar outras ações
-        Log.d(TAG, "Tempo decorrido para salvar no banco: " + elapsedTime + " nanosegundos");
+
     }
 
     private String convertRegionToJson(Fluxo fluxo) {
@@ -328,6 +322,31 @@ public class FirebaseDataSaver extends Thread {
         });
 
     }
+    public void contarReferenciasDiretas(final FirebaseCallback callback) {
+        // Obtenha a referência à raiz do banco de dados (ou a qualquer nó específico)
+        DatabaseReference ref = FirebaseDatabase.getInstance().getReference();
+
+        // Adiciona um listener para ler os dados uma única vez
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // Conta o número de referências diretas (filhos) no nó atual
+                long directReferences = dataSnapshot.getChildrenCount();
+
+                // Passa o valor obtido para o callback
+                callback.onCallback(directReferences);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                System.out.println("Erro ao ler os dados: " + databaseError.getMessage());
+            }
+        });
+    }
+
+
+
+
 
 
 
