@@ -25,14 +25,14 @@ public class FirebaseDataSaver extends Thread {
     private static final String TAG = "FirebaseDataSaver";
     private DatabaseReference referencia = FirebaseDatabase.getInstance().getReference();
     private Context context;
-    private List<Fluxo> copy;
+    private List<Planta> copy;
     private Semaphore semaphore;
     private int i = 0;
     private volatile boolean running = true; // Flag para controlar a execução do loop
 
-    public FirebaseDataSaver(Context context, List<Fluxo> fluxos, Semaphore semaphore) {
+    public FirebaseDataSaver(Context context, List<Planta> plantas, Semaphore semaphore) {
         this.context = context;
-        this.copy = fluxos;
+        this.copy = plantas;
         this.semaphore = semaphore;
     }
 
@@ -46,12 +46,12 @@ public class FirebaseDataSaver extends Thread {
         this.context = context;
     }
 
-    public List<Fluxo> getFluxos() {
+    public List<Planta> getPlanta() {
         return copy;
     }
 
-    public void setFluxos(List<Fluxo> fluxos) {
-        this.copy = fluxos;
+    public void setPlanta(List<Planta> plantas) {
+        this.copy = plantas;
     }
 
     public Semaphore getsemaphore() {
@@ -92,21 +92,21 @@ public class FirebaseDataSaver extends Thread {
         running = false; // Método para parar o loop
 
     }
-    public String obterNomeFluxo(int id, int indexroute) {
+    public String obterNomePlanta(int id, int indexroute) {
         String nome;
         if (id != 0 && indexroute == 0) {
             switch (id) {
                 case 1:
                     nome = "Rota1";
                     break;
-                case 7:
+                case 9:
                     nome = "Rota2";
                     break;
-                case 13:
+                case 17:
                     nome = "Rota3";
                     break;
                 default:
-                    nome = "fluxo desconhecido";
+                    nome = "Planta desconhecido";
                     break;
             }
         }else {
@@ -121,7 +121,7 @@ public class FirebaseDataSaver extends Thread {
                     nome = "Rota3";
                     break;
                 default:
-                    nome = "fluxo desconhecido";
+                    nome = "Planta desconhecido";
                     break;
 
             }
@@ -132,12 +132,12 @@ public class FirebaseDataSaver extends Thread {
     private void saveData() {
         long startTime = System.nanoTime();
 
-        DatabaseReference regiao = referencia.child(obterNomeFluxo(copy.get(0).getId(),0));
+        DatabaseReference regiao = referencia.child(obterNomePlanta(copy.get(0).getId(),0));
 
-        for (Fluxo fluxo : copy) {
+        for (Planta planta : copy) {
             // Convertendo a região para JSON diretamente, sem criptografia
-            String json = convertRegionToJson(fluxo);
-            regiao.child(String.valueOf(i)).setValue(fluxo);
+            String json = convertRegionToJson(planta);
+            regiao.child(String.valueOf(i)).setValue(planta);
             i++;
         }
         i = 0;
@@ -149,15 +149,15 @@ public class FirebaseDataSaver extends Thread {
 
     }
 
-    private String convertRegionToJson(Fluxo fluxo) {
+    private String convertRegionToJson(Planta planta) {
         // Implementação do método de conversão da região para JSON
         Gson gson = new Gson(); // Usando Gson para converter para JSON
-        return gson.toJson(fluxo);
+        return gson.toJson(planta);
     }
     // Novo método para recuperar dados do banco
     public void retrieveData(OnDataRetrievedListener listener,int id,  int indexroute) {
 
-        DatabaseReference ref = referencia.child(obterNomeFluxo(id,indexroute));
+        DatabaseReference ref = referencia.child(obterNomePlanta(id,indexroute));
 
         ref.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -173,32 +173,32 @@ public class FirebaseDataSaver extends Thread {
                 for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
 
                     new Thread(() -> {
-                        Fluxo fluxo = new Fluxo();
+                        Planta planta = new Planta();
 
                         // Preencher ID
                         Integer id = snapshot.child("id").getValue(Integer.class);
                         if (id != null) {
-                            fluxo.setId(id);
+                            planta.setId(id);
                         }
 
 
                         // Preencher Velocidade Média
                         Float velocidadeMedia = snapshot.child("velocidadeMedia").getValue(Float.class);
                         if (velocidadeMedia != null) {
-                            fluxo.setVelocidadeMedia(velocidadeMedia);
+                            planta.setVelocidadeMedia(velocidadeMedia);
                         }
 
                         // Preencher Tempo médio
                         Long tempoMedio = snapshot.child("tempoEsperado").getValue(Long.class);
                         if (tempoMedio != null) {
-                            fluxo.setTempoEsperado(tempoMedio);
+                            planta.setTempoEsperado(tempoMedio);
                         }
 
                         // Preencher tempos
                         for (DataSnapshot tempoSnapshot : snapshot.child("temposMedidos").getChildren()) {
                             Long tempo = tempoSnapshot.getValue(Long.class);
                             if (tempo != null) {
-                                fluxo.addTempoMedido(tempo);
+                                planta.addTempoMedido(tempo);
                             }
                         }
 
@@ -206,20 +206,20 @@ public class FirebaseDataSaver extends Thread {
                         for (DataSnapshot velSnapshot : snapshot.child("velocidades").getChildren()) {
                             Float velocidade = velSnapshot.getValue(Float.class);
                             if (velocidade != null) {
-                                fluxo.setVelocidade(velocidade);
+                                planta.setVelocidade(velocidade);
                             }
                         }
 
                         // Preencher atualizado
                         Boolean atualizado = snapshot.child("atualizado").getValue(Boolean.class);
                         if (atualizado != null) {
-                            fluxo.setAtualizado(atualizado);
+                            planta.setAtualizado(atualizado);
                         }
 
                         // Preencher distância
                         Float distancia = snapshot.child("distancia").getValue(Float.class);
                         if (distancia != null) {
-                            fluxo.setDistancia(distancia);
+                            planta.setDistancia(distancia);
                         }
 
                         // Preencher Geocerca
@@ -251,7 +251,7 @@ public class FirebaseDataSaver extends Thread {
                                 if (latitude != null && longitude != null) {
                                     LatLng centro = new LatLng(latitude, longitude);
                                     geocerca.setCentro(centro);
-                                    fluxo.setCentro(centro); // Atualize o centro do fluxo também
+                                    planta.setCentro(centro); // Atualize o centro da planta também
                                 } else {
                                     Log.d("Geocerca", "Latitude ou longitude é nulo");
                                 }
@@ -282,14 +282,14 @@ public class FirebaseDataSaver extends Thread {
                                 Log.d("Geocerca", "Cor de preenchimento é nulo");
                             }
 
-                            // Definir a geocerca no fluxo
-                            fluxo.setGeocerca(geocerca);
+                            // Definir a geocerca da planta
+                            planta.setGeocerca(geocerca);
                         } else {
                             Log.d("Geocerca", "Geocerca não encontrada no snapshot");
                         }
 
-                        // Adiciona o fluxo à lista e decrementa o latch
-                        copy.add(fluxo);
+                        // Adiciona a planta à lista e decrementa o latch
+                        copy.add(planta);
                         latch.countDown();
                     }).start();
                 }
@@ -299,14 +299,13 @@ public class FirebaseDataSaver extends Thread {
                     latch.await();
 
                     // Ordena a lista com base no ID (ou outro campo relevante)
-                    Collections.sort(copy, new Comparator<Fluxo>() {
+                    Collections.sort(copy, new Comparator<Planta>() {
                         @Override
-                        public int compare(Fluxo f1, Fluxo f2) {
-                            return Integer.compare(f1.getId(), f2.getId());
+                        public int compare(Planta p1, Planta p2) {
+                            return Integer.compare(p1.getId(), p2.getId());
                         }
                     });
 
-                    Log.d(TAG, "Dados recuperados com sucesso!" + copy.size());
                     if (listener != null) {
                         listener.onDataRetrieved(copy);
                     }

@@ -1,5 +1,7 @@
 package com.automacao.avancada41;
 
+
+
 import android.content.Context;
 import android.location.Location;
 
@@ -9,7 +11,7 @@ import com.google.android.gms.maps.model.LatLng;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Fluxo {
+public class Planta {
     // Atributos da classe
     private Geocerca geocerca;
     private List<Float> velocidades;
@@ -23,13 +25,13 @@ public class Fluxo {
     private int id;
 
     // Construtores
-    public Fluxo() {
+    public Planta() {
         this.velocidades = new ArrayList<>();
         this.temposMedidos = new ArrayList<>();
         this.id = nextId++;
     }
 
-    public Fluxo(LatLng position, Float distancia, float velocidadeMedia) {
+    public Planta(LatLng position, Float distancia, float velocidadeMedia) {
         this();
         this.geocerca = new Geocerca(position, 30);
         this.distancia = distancia;
@@ -153,9 +155,9 @@ public class Fluxo {
     }
 
 
-    // Método para imprimir informações do fluxo
+    // Método para imprimir informações a Planta
     public void imprimirInformacoes(Context context) {
-        System.out.println("Fluxo ID: " + getId());
+        System.out.println("Planta ID: " + getId());
         System.out.println("Coordenadas: " + centro);
         System.out.println("Distância: " + (distancia != null ? distancia : "não definida") + " m");
         System.out.println("Velocidade Média: " + getVelocidadeMedia() + " Km/h");
@@ -184,7 +186,7 @@ public class Fluxo {
         }
 
         // Envio de notificação (se aplicável)
-        String notificationMessage = "Fluxo ID: " + getId() + "\n     Speed: " + velocidades;
+        String notificationMessage = "Planta ID: " + getId() + "\n     Speed: " + velocidades;
         NotificationHelper notificationHelper = new NotificationHelper(context);
         notificationHelper.sendNotification("Atualização de Localização", notificationMessage);
     }

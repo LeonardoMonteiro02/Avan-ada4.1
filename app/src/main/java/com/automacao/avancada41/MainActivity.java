@@ -69,9 +69,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Use sua própria chave de API aqui
     private static final String PLACES_API_KEY = "AIzaSyBCyVwhUeBZrcFLX8-PqsjYzvYMaVQvS_4";
 
-    private List<Fluxo> fluxos = new ArrayList<>();
-    private List<Fluxo> copy = new ArrayList<>();
+    private List<Planta> plantas = new ArrayList<>();
+    private List<Planta> copy = new ArrayList<>();
     private FirebaseDataSaver firebaseDataSaver = new FirebaseDataSaver();
+    private List<Planta> plantaconcatenada = new ArrayList<>();
+    private int totalOperations = 0;
+    private int completedOperations = 0;
 
 
 
@@ -240,10 +243,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         public void onCallback(long count) {
                             // Aqui você recebe o valor do callback
 
-                            for (int i = 1; i < (int) count; i++) {
-                                System.out.println("Iteração número: " + i);
-                                recuperarDados(firebaseDataSaver, i); // Chama o método recuperarDados para cada valor de i
-                            }
+
+                                startReconciliationProcess(firebaseDataSaver, count); // Chama o método recuperarDados para cada valor de i
+
 
                         }
                     });
@@ -326,28 +328,28 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
         float speed = location.getSpeed();
         long currentTimeMillis = 0;
-        boolean todosAtualizados = true;  // Flag para verificar se todos os fluxos foram atualizados
+        boolean todosAtualizados = true;  // Flag para verificar se todos as plantas foram atualizados
         boolean dentroDeAlgumaGeocerca = false;  // Flag para verificar se ainda está dentro de alguma geocerca
 
-        if (!fluxos.isEmpty()) {
+        if (!plantas.isEmpty()) {
 
-            for (Fluxo fluxo : fluxos) {
-                if (fluxo.dentroDaGeocerca(currentLatLng)) {
-                    // Atualiza o fluxo somente se ainda não foi atualizado
-                    currentTimeMillis = (long)(fluxo.getDistancia()/speed);
-                    fluxo.atualizarInformacoes(speed * 3.6f, currentTimeMillis, MainActivity.this);
+            for (Planta planta : plantas) {
+                if (planta.dentroDaGeocerca(currentLatLng)) {
+                    // Atualiza a planta somente se ainda não foi atualizado
+                    currentTimeMillis = (long)(planta.getDistancia()/speed);
+                    planta.atualizarInformacoes(speed * 3.6f, currentTimeMillis, MainActivity.this);
                     dentroDeAlgumaGeocerca = true;  // Ainda está dentro de uma geocerca
                 }
 
 
 
-                // Verifica se algum fluxo ainda não foi atualizado
-                if (!fluxo.isAtualizado()) {
+                // Verifica se alguma planta ainda não foi atualizado
+                if (!planta.isAtualizado()) {
                     todosAtualizados = false;
                 }
             }
 
-            // Se todos os fluxos foram atualizados e estamos fora de todas as geocercas
+            // Se todos as plantas foram atualizados e estamos fora de todas as geocercas
             if (todosAtualizados && !dentroDeAlgumaGeocerca) {
                 try {
                     Thread.sleep(3000);  // Delay de 3 segundos (3000 milissegundos)
@@ -356,11 +358,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
 
                 // Redefine a flag 'atualizado' de todos para 'false'
-                for (Fluxo fluxo : fluxos) {
-                    fluxo.setAtualizado(false);
+                for (Planta planta : plantas) {
+                    planta.setAtualizado(false);
 
                 }
-                copy = new ArrayList<>(fluxos);
+                copy = new ArrayList<>(plantas);
                 saveCurrentLocationToFirebase();
             }
         }
@@ -519,9 +521,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     @Override
-    public void onGeofencesCreated(List<Fluxo> fluxos) {
-        this.fluxos = fluxos;
-        Log.e("MainActivity", "O numero total de fluxo é: " + this.fluxos.size());
+    public void onGeofencesCreated(List<Planta> plantas) {
+        this.plantas = plantas;
+        Log.e("MainActivity", "O numero total de plantas é: " + this.plantas.size());
     }
     @Override
     public void onGeofenceError(String error) {
@@ -559,25 +561,104 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             Toast.makeText(this, "Localização atual não disponível.", Toast.LENGTH_SHORT).show();
         }
     }
+    // Método que inicia o processo
+    // Método que inicia o processo
+    public void startReconciliationProcess(FirebaseDataSaver firebaseDataSaver, long count) {
+        totalOperations = (int) count;  // Total de operações a serem realizadas
+        completedOperations = 0;  // Inicializa como zero
+
+        System.out.println("Iteração número: " + totalOperations);
+        System.out.println();
+        for (int i = 1; i <= totalOperations; i++) {
+
+            recuperarDados(firebaseDataSaver, i);  // Chama o método recuperarDados para cada valor de i
+        }
+    }
+
     public void recuperarDados(FirebaseDataSaver firebaseDataSaver, int indexRout) {
-        System.out.println("Iniciando recuperação de dados");
+
         firebaseDataSaver.retrieveData(new OnDataRetrievedListener() {
             @Override
-            public void onDataRetrieved(List<Fluxo> fluxos) {
-                Log.e("Recuperar", "Lista de recuperação" + fluxos.size());
-                if (fluxos != null) {
-                    // Realize as ações que precisam dos dados carregados aqui
-                    if (fluxos.get(0).getVelocidades().size() >= 4) {
-                        List<Long> tempo = new ArrayList<>();
-                        EstatisticasTempos estatisticasTempos = new EstatisticasTempos(fluxos);
-                        estatisticasTempos.imprimirRelatorio();
-                    }
+            public void onDataRetrieved(List<Planta> plantas) {
 
+                if (plantas != null) {
+                    // Reconciliar a lista individual com um identificador
+                    System.out.println(" ");
+                    System.out.println("----- Iniciando Reconciliação para Lista " + indexRout + " -----");
+                    Reconciliar(plantas);
+                    System.out.println(" ");
+                    System.out.println("----- Reconciliação para Lista " + indexRout + " Concluída -----");
+                    System.out.println(" "); // Espaço após a reconciliação
+                    System.out.println(" "); // Mais uma linha em branco para separar bem as seções
+
+                    // Combina os tempos na lista acumulada
+                    combinarTempos(plantas);
+
+                    // Incrementa o contador de operações concluídas
+                    completedOperations++;
+
+                    // Verifica se todas as operações foram concluídas
+                    if (completedOperations == totalOperations) {
+                        // Espaço antes da mensagem de reconciliação geral
+                        System.out.println(" ");
+                        System.out.println(" ");
+                        System.out.println("----- Iniciando Reconciliação Geral da Lista Concatenada -----");
+
+// Executa a reconciliação da lista concatenada
+                        Reconciliar(plantaconcatenada);
+
+// Espaço após a mensagem de reconciliação geral
+                        System.out.println(" ");
+                        System.out.println(" ");
+                        System.out.println("----- Reconciliação Geral Concluída -----");
+                        System.out.println(" "); // Espaço adicional após a conclusão
+                        System.out.println(" "); // Mais uma linha em branco para separar bem as seções
+                    }
                 } else {
                     Log.e("MainActivity", "Erro ao recuperar os dados ou lista vazia.");
                 }
             }
-        },0,indexRout);
+        }, 0, indexRout);
+    }
+
+    private void  combinarTempos( List<Planta> novaLista) {
+        if (plantaconcatenada.isEmpty()) {
+            // Se a lista acumulada estiver vazia, inicializa com a nova lista
+            plantaconcatenada.addAll(novaLista);
+        } else {
+            // Caso contrário, combina os tempos medidos com a nova lista
+            for (int i = 0; i < plantaconcatenada.size(); i++) {
+                Planta plantaAcumulada = plantaconcatenada.get(i);
+                Planta plantaNova = novaLista.get(i);
+
+                // Combina os tempos medidos da nova planta com a planta acumulada
+                List<Long> temposMedidosAcumulados = plantaAcumulada.getTemposMedidos();
+                List<Long> temposMedidosNovos = plantaNova.getTemposMedidos();
+                temposMedidosAcumulados.addAll(temposMedidosNovos);
+            }
+
+        }
+
+    }
+
+    private void Reconciliar (List <Planta> plantas){
+        if (!plantas.isEmpty()) {
+            if (plantas.get(0).getVelocidades().size() >= 2) {
+                List<Long> tempo = new ArrayList<>();
+                EstatisticasTempos estatisticasTempos = new EstatisticasTempos(plantas);
+                double medias[] = estatisticasTempos.calcularVetorMedias();
+                double desvio[] = estatisticasTempos.calcularVetorDesvio();
+                double matrizincidencia[][] = estatisticasTempos.criarMatrizIncidencia();
+                Reconciliacao reconciliacao = new Reconciliacao(medias, desvio, matrizincidencia);
+                reconciliacao.printaFluxoReconciliado();
+                estatisticasTempos.imprimirVetorMedias();
+                // estatisticasTempos.imprimirMedidasReconciliadas();
+
+            }
+        }else {
+            // Trate o caso onde a lista está vazia
+            Log.e("MainActivity", "A lista está vazia.");
+        }
     }
 
 }

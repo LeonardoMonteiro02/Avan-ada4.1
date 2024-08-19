@@ -41,6 +41,7 @@ dependencies {
     implementation("com.google.android.libraries.places:places:3.1.0")
     implementation ("com.example:biblioteca:1.0")
     implementation ("com.fasterxml.jackson.core:jackson-databind:2.12.3")
+    implementation ("org.ejml:ejml-all:0.41")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
